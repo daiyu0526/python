@@ -186,3 +186,109 @@ ax.set_xlabel('Iterations')
 ax.set_ylabel('Cost')
 ax.set_title('Error vs. Training Epoch')
 plt.show()
+
+
+
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+pd.set_option('display.max_rows', None)#显示全部行
+pd.set_option('display.max_columns', None)#显示全部列
+
+# 数据导入及分类
+path = 'ex2data1.txt'
+data = pd.read_csv(path, header=None, names=['Exam 1', 'Exam 2', 'Admitted'])
+positive = data[data['Admitted'].isin([1])] # 这个isin函数用法：取data数据中admitted数据列中值为1的所有值
+negative = data[data['Admitted'].isin([0])]
+
+# 数据可视化
+fig, ax = plt.subplots(figsize=(12,8)) # 画图前需要明确这个图形
+ax.scatter(positive['Exam 1'], positive['Exam 2'], s=50, c='b', marker='o', label='Admitted')
+ax.scatter(negative['Exam 1'], negative['Exam 2'], s=50, c='r', marker='x', label='Not Admitted')
+ax.legend()
+ax.set_xlabel('Exam 1 Score')
+ax.set_ylabel('Exam 2 Score')
+plt.show()
+
+# 逻辑回归方程，分类问题中的逻辑回归算法和回归问题中的线性算法的假设函数是可以不一致的，假设函数是主要随着问题在变的
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+# 代价函数计算
+def cost(theta, X, y):
+    theta = np.matrix(theta)
+    X = np.matrix(X)
+    y = np.matrix(y) # 这一步是把这些数值全部弄成矩阵的形式
+    first = np.multiply(-y, np.log(sigmoid(X * theta.T)))
+    second = np.multiply((1 - y), np.log(1 - sigmoid(X * theta.T)))
+    return np.sum(first - second) / (len(X))
+
+# add a ones column - this makes the matrix multiplication work out easier
+data.insert(0, 'Ones', 1)
+
+# set X (training data) and y (target variable)
+cols = data.shape[1]
+X = data.iloc[:,0:cols-1]
+y = data.iloc[:,cols-1:cols]
+
+# convert to numpy arrays and initalize the parameter array theta
+X = np.array(X.values)
+y = np.array(y.values)
+theta = np.zeros(3)
+
+# 仅计算了梯度步长，梯度步长也就是将求导得到的那一部分
+def gradient(theta, X, y):
+    theta = np.matrix(theta)  # theta设成为了一个矩阵形式，同理也在x与y中
+    X = np.matrix(X)
+    y = np.matrix(y)
+
+    parameters = int(theta.ravel().shape[1])  # 参数同样也是将其拉展成为一行数据进行相成
+    grad = np.zeros(parameters) # 初始值时都是设这个数值为0
+
+    error = sigmoid(X * theta.T) - y
+
+    for i in range(parameters):
+        term = np.multiply(error, X[:, i])
+        grad[i] = np.sum(term) / len(X)
+
+    return grad
+
+gradient(theta, X, y)
+
+# 使用TNC寻找最优参数，这个函数自己有自己的一套计算方法的，在使用时可以查找其相应的使用参数信息
+import scipy.optimize as opt
+result = opt.fmin_tnc(func=cost, x0=theta, fprime=gradient, args=(X, y))
+
+cost(result[0], X, y)
+
+# 也要写出预测函数，输入进去一个x需要判断期结果
+def predict(theta, X):
+    probability = sigmoid(X * theta.T)
+    return [1 if x >= 0.5 else 0 for x in probability]
+
+theta_min = np.matrix(result[0])
+predictions = predict(theta_min, X)
+correct = [1 if ((a == 1 and b == 1) or (a == 0 and b == 0)) else 0 for (a, b) in zip(predictions, y)]
+accuracy = (sum(map(int, correct)) % len(correct))
+print ('accuracy = {0}%'.format(accuracy))
+
+# support标签中出现的次数
+# precision查准率，recall召回率，f1-score调和平均数
+from sklearn.metrics import classification_report
+print(classification_report(y, predictions))
+
+coef = -result[0] / result[0][2]
+x = np.arange(30, 100, 0.5)
+y = coef[0] + coef[1] * x
+
+fig, ax = plt.subplots(figsize=(12, 8))
+ax.scatter(positive['Exam 1'], positive['Exam 2'], s=50, c='b', marker='o', label='Admitted')
+ax.scatter(negative['Exam 1'], negative['Exam 2'], s=50, c='r', marker='x', label='Not Admitted')
+ax.plot(x, y, label='Decision Boundary', c='grey')
+ax.legend()
+ax.set_xlabel('Exam 1 Score')
+ax.set_ylabel('Exam 2 Score')
+plt.show()
